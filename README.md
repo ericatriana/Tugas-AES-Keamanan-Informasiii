@@ -1,98 +1,86 @@
-# AES-128 + Key Distribution Center
+# AES-128 + Key Distribution Center (KDC)
 
-Tugas 2 Keamanan Informasi. Alice dan Bob bertukar pesan terenkripsi AES-128 setelah mendapatkan session key dari KDC lewat protokol lima langkah. AES dan KDC ditulis manual, tanpa pustaka kriptografi pihak ketiga.
+Project ini dibuat untuk memenuhi **Tugas 2 mata kuliah Keamanan Informasi**. Program mengimplementasikan komunikasi terenkripsi antara Alice dan Bob menggunakan algoritma AES-128, dengan bantuan Key Distribution Center (KDC) sebagai pihak yang mendistribusikan kunci.
 
-## Anggota
+Implementasi AES dan KDC dibuat secara manual menggunakan Python, tanpa library kriptografi pihak ketiga.
+
+## Anggota Kelompok
 
 | Nama | NRP | GitHub |
 |---|---|---|
-| Erica Triana W. | 5025241069 | ericatriana |
-| Nasyita Larasati E. | 5025241201 | imstunning |
+| Erica Triana W. | 5025241069 | [ericatriana](https://github.com/ericatriana) |
+| Nasyita Larasati E. | 5025241201 | [imstunning](https://github.com/imstunning) |
 
-## Cara kerja singkat
+## Konsep dan Cara Kerja Sistem
 
-Alice dan Bob belum punya kunci bersama. KDC (pihak ketiga tepercaya) membuat session key (Ks) dan membagikannya dalam bentuk terenkripsi, sehingga Ks tidak pernah lewat jaringan dalam keadaan terbuka.
+Sistem terdiri dari tiga entitas utama, yaitu **Alice, Bob, dan KDC**, yang dijalankan pada tiga perangkat dengan IP address berbeda.
 
-- **Ka**: key rahasia Alice dan KDC.
-- **Kb**: key rahasia Bob dan KDC.
-- **Ks**: session key untuk chat Alice dan Bob, dibuat KDC setiap sesi.
+- **Alice:** Pihak yang memulai permintaan komunikasi.
+- **Bob:** Pihak yang menerima permintaan komunikasi dari Alice.
+- **KDC:** Pihak ketiga tepercaya yang membuat dan mendistribusikan session key.
+
+Dalam sistem ini digunakan tiga jenis kunci:
+
+- **Ka:** Kunci rahasia antara Alice dan KDC.
+- **Kb:** Kunci rahasia antara Bob dan KDC.
+- **Ks:** Session key yang dibuat oleh KDC untuk komunikasi Alice dan Bob.
+
+Awalnya, Alice dan Bob belum memiliki kunci bersama. Alice kemudian meminta session key kepada KDC. KDC membuat Ks dan mendistribusikannya secara terenkripsi agar Alice dan Bob dapat menggunakan kunci yang sama tanpa mengirimkan Ks dalam bentuk plaintext melalui jaringan.
+
+### Protokol Distribusi Kunci
 
 ![Key Distribution Scenario](images/key-distribution.jpg)
 
-*Skenario Key Distribution pada ketentuan tugas: langkah 1 sampai 3 adalah distribusi kunci, langkah 4 dan 5 adalah autentikasi.*
+Proses distribusi kunci dan autentikasi mengikuti protokol lima langkah sesuai skenario tugas.
 
-| No | Arah | Pesan |
-|---|---|---|
-| 1 | Alice → KDC | `ID_A ‖ ID_B ‖ N1` |
-| 2 | KDC → Alice | `E(Ka, [Ks ‖ ID_A ‖ ID_B ‖ N1]) ‖ E(Kb, [Ks ‖ ID_A])` |
-| 3 | Alice → Bob | `E(Kb, [Ks ‖ ID_A])` |
-| 4 | Bob → Alice | `E(Ks, N2)` |
-| 5 | Alice → Bob | `E(Ks, f(N2))`, dengan f = membalik urutan karakter N2 |
-
-Setelah langkah 5, setiap pesan chat dienkripsi dengan Ks.
-
-## Fitur
-
-**Sesuai ketentuan tugas**
-
-- AES-128 manual (SubBytes, ShiftRows, MixColumns, AddRoundKey, key expansion)
-- KDC dan protokol lima langkah sesuai diagram
-- Tiga entitas di tiga IP berbeda
-- Chat dua arah, key dan plaintext ASCII, ciphertext ditampilkan dalam hex
-- Key diinput saat program berjalan dan dapat diganti tanpa menjalankan ulang program (`/ka`, `/kb`)
-
-**Tambahan**
-
-- Mode CBC dengan IV acak: pesan yang sama menghasilkan ciphertext berbeda
-- HMAC-SHA256: ciphertext yang diubah atau key yang salah ditolak
-- `/renew`: Alice meminta session key baru dari KDC tanpa menjalankan ulang program
-
-## Menjalankan
-
-Python 3.9 atau lebih baru, hanya pustaka standar. Jalankan berurutan: KDC, Bob, Alice. Isi Ka di KDC dan Alice, Kb di KDC dan Bob (masing-masing 16 karakter ASCII).
-
-```bash
-# Perangkat 1: KDC
-python kdc.py --port 5001
-
-# Perangkat 2: Bob
-python bob.py --port 5002
-
-# Perangkat 3: Alice
-python alice.py --kdc-host <IP_KDC> --bob-host <IP_BOB>
-```
-
-Gunakan `python3` di macOS dan Linux.
-
-| Program | Perintah |
+| Langkah | Proses |
 |---|---|
-| KDC | `/ka`, `/kb`, `/quit` |
-| Alice | ketik pesan, `/renew`, `/quit` |
-| Bob | ketik pesan, `/kb`, `/quit` |
+| 1 | Alice mengirim identitas Alice, identitas Bob, dan nonce N1 kepada KDC. |
+| 2 | KDC membuat Ks, lalu mengirimkan informasi terenkripsi untuk Alice beserta ticket untuk Bob. |
+| 3 | Alice meneruskan ticket dari KDC kepada Bob. |
+| 4 | Bob mengirim challenge berupa nonce N2 yang dienkripsi menggunakan Ks. |
+| 5 | Alice mengirim hasil fungsi f(N2) yang dienkripsi menggunakan Ks sebagai jawaban autentikasi. |
 
-## Struktur
+Pada implementasi ini, fungsi **f(N2)** dilakukan dengan membalik urutan karakter nonce N2.
 
-```
-aes.py        AES-128 manual dan mode CBC
-protocol.py   pengiriman pesan lewat TCP, enkripsi dan HMAC
-kdc.py        KDC
-alice.py      Alice (initiator)
-bob.py        Bob (responder)
-tests/        tes unit
-```
+Setelah kelima langkah berhasil, Alice dan Bob dapat saling mengirim dan menerima pesan yang dienkripsi menggunakan AES-128 dengan session key yang sama.
 
-## Tes
+## Implementasi AES-128
 
-```bash
-python -m unittest discover -s tests -v
-```
+AES-128 dibuat secara manual, meliputi proses **SubBytes, ShiftRows, MixColumns, AddRoundKey, dan Key Expansion**.
 
-Mencakup test vector NIST AES-128, round-trip CBC, IV acak, penolakan HMAC, dan `/renew`.
+Setiap pesan dienkripsi menggunakan session key (Ks) sebelum dikirim melalui jaringan. Penerima mendekripsi ciphertext menggunakan Ks untuk mendapatkan kembali pesan aslinya.
 
-## Dokumentasi lengkap
+Komunikasi dilakukan menggunakan socket TCP, dengan plaintext dan key berformat ASCII serta ciphertext yang ditampilkan dalam format hexadecimal.
 
-Persiapan jaringan, langkah menjalankan di tiga perangkat, skenario pengujian, panduan Wireshark, dan daftar kesalahan umum ada di [PENGUJIAN.md](PENGUJIAN.md).
+## Fitur Sesuai Ketentuan Tugas
 
-## Keterbatasan
+- **AES-128 manual:** Implementasi enkripsi dan dekripsi tanpa library AES siap pakai.
+- **KDC manual:** Implementasi distribusi session key secara mandiri.
+- **Protokol lima langkah:** Distribusi kunci dan autentikasi mengikuti skenario Alice–KDC–Bob.
+- **Tiga IP berbeda:** Alice, Bob, dan KDC dijalankan pada perangkat dengan alamat IP berbeda.
+- **Komunikasi dua arah:** Alice dan Bob dapat saling mengirim serta menerima pesan terenkripsi.
+- **Format ASCII dan Hex:** Key dan plaintext menggunakan ASCII, sedangkan ciphertext ditampilkan dalam Hex.
+- **Key dapat diubah:** Ka dan Kb dapat diperbarui secara interaktif tanpa menjalankan ulang program.
 
-Protokol ini varian Needham–Schroeder symmetric key. Ticket tidak memiliki timestamp, sehingga jika suatu Ks lama bocor, ticket lama dapat diputar ulang (*replay*, serangan Denning–Sacco). Implementasi ini untuk keperluan pembelajaran, bukan untuk melindungi data nyata.
+## Fitur Tambahan
+
+### 1. AES-CBC dengan IV Acak
+
+Program menggunakan mode **Cipher Block Chaining (CBC)** dengan Initialization Vector (IV) yang dibuat secara acak pada setiap proses enkripsi.
+
+Penggunaan IV acak memungkinkan plaintext dan key yang sama menghasilkan ciphertext berbeda, sehingga pola pesan tidak langsung terlihat dari hasil enkripsinya.
+
+### 2. HMAC-SHA256
+
+Program menggunakan **HMAC-SHA256** untuk memeriksa integritas dan autentikasi pesan terenkripsi.
+
+Setiap ciphertext dilengkapi authentication tag yang diperiksa sebelum dekripsi. Apabila ciphertext dimodifikasi atau key tidak sesuai, autentikasi akan gagal dan paket ditolak.
+
+### 3. Session Key Renewal (`/renew`)
+
+Fitur `/renew` memungkinkan Alice meminta session key baru kepada KDC tanpa menjalankan ulang program.
+
+Ketika fitur digunakan, sesi sebelumnya diakhiri dan protokol lima langkah dilakukan kembali. KDC membuat Ks baru untuk digunakan pada sesi komunikasi berikutnya.
+
+Fitur ini menerapkan konsep **key rotation**, yaitu pembaruan kunci untuk membatasi penggunaan satu session key secara terus-menerus.
