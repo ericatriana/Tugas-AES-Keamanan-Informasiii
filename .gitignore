@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.env
+keys.json
+*.pcap
+*.pcapng
+.DS_Store
+__MACOSX/
+PANDUAN_DEMO.md
+README.md
+langkah_caca.md
+
